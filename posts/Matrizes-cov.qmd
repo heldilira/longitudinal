@@ -1,0 +1,105 @@
+---
+title: "Matrizes-cov"
+format: html
+---
+
+```{r}
+library(nlme)
+library(ggplot2)
+library(tidyverse)
+```
+
+
+```{r}
+# dat <- readxl::read_excel("P1_diary_COMPLETO.xlsx") |> 
+#      janitor::clean_names() |> 
+#      dplyr::filter(!is.na(sleep_satisfaction))
+
+dat <- read.csv("data/mydata.csv") |> 
+     dplyr::mutate(randomization = factor(randomization)) |> 
+     dplyr::filter(!is.na(insomnia_severity))
+
+head(dat)
+```
+```{r}
+dat |> 
+     ggplot(aes(x = redcap_event_name, y = insomnia_severity, 
+                group = record_id, color = randomization)) +
+     geom_point() +
+     geom_line() +
+     #geom_smooth(method = 'lm') +
+     theme_minimal()
+```
+
+
+```{r}
+# Compound symmetry
+m1 <- gls(insomnia_severity ~ redcap_event_name, corr = corCompSymm(form = ~1|record_id), method="ML", data=dat)
+summary(m1) # get the fixed effects parameters and fit indices
+```
+```{r}
+getVarCov(m1) # get the random effects parameters
+cov2cor(getVarCov(m1))
+```
+```{r}
+# AR1 pattern
+m2 <- gls(insomnia_severity ~ redcap_event_name, corr = corAR1(form = ~1|record_id), method="ML", data=dat)
+summary(m2)
+
+```
+```{r}
+getVarCov(m2)
+cov2cor(getVarCov(m2))
+```
+
+```{r}
+anova(m1, m2)
+```
+```{r}
+# CS with heterogeneous variances
+m3 <- gls(insomnia_severity ~ redcap_event_name, corr = corCompSymm(form = ~1|record_id), weights = varIdent(form = ~ 1 | redcap_event_name),
+          method="ML",data=dat)
+summary(m3)
+
+```
+```{r}
+getVarCov(m3)
+cov2cor(getVarCov(m3))
+```
+```{r}
+anova(m1, m2, m3)
+# podemos interpretar o teste de significancia?
+# o que significa o teste da anova neste caso?
+```
+
+```{r}
+# AR1 with heterogeneous variances
+m4 <- gls(insomnia_severity ~ redcap_event_name, corr = corAR1(form = ~1|record_id), weights = varIdent(form = ~ 1 | redcap_event_name),
+          method="ML",data=dat)
+summary(m4)
+
+```
+
+```{r}
+getVarCov(m4)
+cov2cor(getVarCov(m4))
+```
+```{r}
+anova(m1, m2, m3, m4)
+```
+
+```{r}
+# Unstructured
+m5 <- gls(insomnia_severity ~ redcap_event_name, corr = corSymm(form = ~1|record_id), weights = varIdent(form = ~ 1 | redcap_event_name), 
+          method="ML",data=dat)
+summary(m5)
+```
+
+```{r}
+getVarCov(m5)
+cov2cor(getVarCov(m5))
+```
+
+```{r}
+anova(m1, m2, m3, m4, m5)
+```
